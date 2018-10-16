@@ -132,14 +132,16 @@ public class FutureTests {
             CompletableFuture resultHandler = stage1.handle((s, t) -> (t != null) ? "Job throws error!" : s);
 
             /** 3-1) 或通过依然通过 join 捕获异常 */
-            CompletableFuture stage2 = CompletableFuture.runAsync(() -> {
+            CompletableFuture stage2 = CompletableFuture.supplyAsync(() -> {
                 try {
                     String res = stage1.join().toString();
                     assertEquals("Hello, Solar!", res);
+                    return res;
                 }
                 catch(CompletionException e) {
                     String eMsg = e.getCause().getMessage();
                     assertEquals("Opoos...", eMsg);
+                    return eMsg;
                 }
             }, executorService());
 
@@ -156,5 +158,8 @@ public class FutureTests {
         catch(Throwable t){
             t.printStackTrace();
         }
+
+        /** 7) 取出结果*/
+        futures.forEach(f -> System.out.println(f.join()));
     }
 }
