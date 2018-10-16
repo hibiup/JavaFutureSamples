@@ -13,7 +13,8 @@ import static org.junit.Assert.assertTrue;
 public class FutureTests {
     String testMethod(String name) {
         try {
-            Thread.sleep(2000);
+            Thread.sleep(5000);
+            System.out.println("Thread: " + Thread.currentThread());
         } catch (InterruptedException e) {
             throw new RuntimeException("Thread can't sleep!");
         }
@@ -116,47 +117,44 @@ public class FutureTests {
         names.add("Earth");
         names.add("Solar");
 
-        /** 1) 假设存在多个并发任务 */
-        List<CompletableFuture> futures = names.stream().map(name ->
-            CompletableFuture.supplyAsync(() ->  {
+        List<CompletableFuture> futures = names.stream().map(name -> {
+            /** 1) 假设存在多个并发任务，逐个定义 */
+            CompletableFuture stage1 = CompletableFuture.supplyAsync(() -> {
                 String s = testMethod(name);  // 会睡眠两秒
                 /** 2) 假设部分存在异常．*/
                 if (name == "Earth")
                     throw new RuntimeException("Opoos...");
                 else
                     return s;
-            }, executorService())
-        )
-                /** 3) 将生成的 CompletableFuture 保存到 List。 */
-                .collect(Collectors.toList());
+            }, executorService());
 
-        /** 4) 为每个 future 加上 handler 并返回 handler 集合。*/
-        List<CompletableFuture> handlers = futures.stream().map(cf -> {
-            CompletableFuture resultHandler = cf.handle((s, t) -> {
-                        return (t != null) ? "Job throws error!" : s;
-                    });
-            return resultHandler;
-        }).collect(Collectors.toList());
+            /** 3) 为 future 加上 handler(可选)。*/
+            CompletableFuture resultHandler = stage1.handle((s, t) -> (t != null) ? "Job throws error!" : s);
 
-        /** 5) 获取所有 handler 的结果．*/
-        CompletableFuture.allOf(handlers.toArray(new CompletableFuture[handlers.size()])).join();
-        handlers.forEach(h -> System.out.println(h.join()));
+            /** 3-1) 或通过依然通过 join 捕获异常 */
+            CompletableFuture stage2 = CompletableFuture.runAsync(() -> {
+                try {
+                    String res = stage1.join().toString();
+                    assertEquals("Hello, Solar!", res);
+                }
+                catch(CompletionException e) {
+                    String eMsg = e.getCause().getMessage();
+                    assertEquals("Opoos...", eMsg);
+                }
+            }, executorService());
 
-        /** 5-1) 或依然通过 join 等待结果。*/
+            /** 4) 可选返回 resultHandler 或 f */
+            return stage2;
+        })
+        /** 5) 将生成的 CompletableFuture 保存到 List。 */
+        .collect(Collectors.toList());
+
+        /** 6) 并发执行并等待结果。*/
         try {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()])).join();
         }
-        catch(Throwable t){/** 忽略 */}
-        finally {
-            futures.forEach(cf -> {
-                /** 6) 捕获每一个异常．*/
-                try {
-                    assertEquals("Hello, Solar!", cf.join());
-                }
-                catch(CompletionException e) {
-                    assertEquals("Opoos...", e.getCause().getMessage());
-                }
-            });
+        catch(Throwable t){
+            t.printStackTrace();
         }
     }
 }
