@@ -145,8 +145,8 @@ public class FutureTests {
                 }
             }, executorService());
 
-            /** 4) 可选返回 resultHandler 或 f */
-            return stage2;
+            /** 4) 可选返回 resultHandler 或 stage2 */
+            return resultHandler;  // 或 stage2
         })
         /** 5) 将生成的 CompletableFuture 保存到 List。 */
         .collect(Collectors.toList());
@@ -160,6 +160,6 @@ public class FutureTests {
         }
 
         /** 7) 取出结果*/
-        futures.forEach(f -> System.out.println(f.join()));
+        futures.forEach(f -> System.out.println(f.getNow(null)));
     }
 }
