@@ -126,27 +126,19 @@ public class FutureTests {
                     throw new RuntimeException("Opoos...");
                 else
                     return s;
-            }, executorService());
+            }, executorService())
+                    /** 2-1) 继续后续操作．*/
+                    .thenApplyAsync(s -> {
+                        assertEquals("Hello, Solar!", s);
+                        System.out.println(s);
+                        return s;
+                    }, executorService());
 
             /** 3) 为 future 加上 handler(可选)。*/
             CompletableFuture resultHandler = stage1.handle((s, t) -> (t != null) ? "Job throws error!" : s);
 
-            /** 3-1) 或通过依然通过 join 捕获异常 */
-            CompletableFuture stage2 = CompletableFuture.supplyAsync(() -> {
-                try {
-                    String res = stage1.join().toString();
-                    assertEquals("Hello, Solar!", res);
-                    return res;
-                }
-                catch(CompletionException e) {
-                    String eMsg = e.getCause().getMessage();
-                    assertEquals("Opoos...", eMsg);
-                    return eMsg;
-                }
-            }, executorService());
-
-            /** 4) 可选返回 resultHandler 或 stage2 */
-            return resultHandler;  // 或 stage2
+            /** 4) 可选返回 resultHandler */
+            return resultHandler;
         })
         /** 5) 将生成的 CompletableFuture 保存到 List。 */
         .collect(Collectors.toList());
